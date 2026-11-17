@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scam Message Checker</title>
+<style>
+  :root {
+    --bg: #0d1218;
+    --bg2: #111823;
+    --card: rgba(19, 26, 35, 0.85);
+    --ink: #c7d1dc;
+    --muted: #7d8b9a;
+    --accent: #5fb9a8;
+    --accent2: #7ba3d6;
+    --accent-soft: rgba(95, 185, 168, 0.07);
+    --warn: #d99e70;
+    --warn-soft: rgba(217, 158, 112, 0.08);
+    --ok: #5fb9a8;
+    --ok-soft: rgba(95, 185, 168, 0.07);
+    --border: rgba(95, 185, 168, 0.18);
+    --radius: 16px;
+    --mono: "Cascadia Code", "Consolas", "Courier New", monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: "Segoe UI", -apple-system, Roboto, Arial, sans-serif;
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(123, 163, 214, 0.07), transparent 60%),
+      radial-gradient(900px 500px at 10% 110%, rgba(95, 185, 168, 0.05), transparent 60%),
+      var(--bg);
+    color: var(--ink);
+    line-height: 1.6;
+    font-size: 17px;
+    min-height: 100vh;
+  }
+  /* subtle grid backdrop */
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(95, 185, 168, 0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(95, 185, 168, 0.02) 1px, transparent 1px);
+    background-size: 42px 42px;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .wrap { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; padding: 24px 16px 60px; }
+
+  /* ---------- Holographic intro ---------- */
+  #holoIntro {
+    position: fixed; inset: 0; z-index: 100;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: radial-gradient(900px 500px at 50% 35%, rgba(0, 229, 199, 0.07), transparent 65%), var(--bg);
+    transition: opacity 0.7s ease, visibility 0.7s ease;
+  }
+  #holoIntro.done { opacity: 0; visibility: hidden; }
+  .holo-scene { perspective: 700px; }
+  .holo-ring {
+    width: 190px; height: 190px; margin: 0 auto; position: relative;
+    transform-style: preserve-3d;
+    animation: holoSpin 3.2s linear infinite;
+  }
+  .holo-ring .ring {
+    position: absolute; inset: 0; border-radius: 50%;
+    border: 2px solid rgba(95, 185, 168, 0.45);
+    box-shadow: 0 0 16px rgba(95, 185, 168, 0.25), inset 0 0 16px rgba(95, 185, 168, 0.15);
+  }
+  .holo-ring .ring.r2 { inset: 22px; border-color: rgba(123, 163, 214, 0.45); animation: holoTilt 2.4s ease-in-out infinite; box-shadow: 0 0 14px rgba(123, 163, 214, 0.25), inset 0 0 14px rgba(123, 163, 214, 0.15); }
+  .holo-ring .ring.r3 { inset: 44px; border-style: dashed; animation: holoSpinRev 2s linear infinite; }
+  .holo-core {
+    position: absolute; inset: 74px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(95,185,168,0.6), rgba(95,185,168,0.1) 70%);
+    filter: blur(1px);
+    animation: holoPulse 1.6s ease-in-out infinite;
+  }
+  .holo-scan {
+    position: absolute; left: -30%; right: -30%; height: 2px; top: 50%;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    animation: holoScanLine 2.2s ease-in-out infinite;
+    box-shadow: 0 0 12px rgba(95, 185, 168, 0.5);
+  }
+  @keyframes holoSpin { from { transform: rotateX(55deg) rotateZ(0deg); } to { transform: rotateX(55deg) rotateZ(360deg); } }
+  @keyframes holoSpinRev { from { transform: rotateZ(0deg); } to { transform: rotateZ(-360deg); } }
+  @keyframes holoTilt { 0%, 100% { transform: rotateY(0deg); } 50% { transform: rotateY(180deg); } }
+  @keyframes holoPulse { 0%, 100% { opacity: 0.6; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.12); } }
+  @keyframes holoScanLine { 0%, 100% { top: 12%; opacity: 0; } 10%, 90% { opacity: 1; } 50% { top: 86%; } }
+  .holo-title {
+    margin-top: 34px; font-family: var(--mono); letter-spacing: 0.35em;
+    color: var(--accent); text-transform: uppercase; font-size: 1rem;
+    text-shadow: 0 0 12px rgba(95, 185, 168, 0.35);
+  }
+  .holo-sub { color: var(--muted); font-size: 0.85rem; margin-top: 6px; letter-spacing: 0.2em; font-family: var(--mono); }
+  .holo-bar {
+    margin-top: 26px; width: 240px; height: 4px; border-radius: 999px;
+    background: rgba(255,255,255,0.08); overflow: hidden;
+  }
+  .holo-bar span {
+    display: block; height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    box-shadow: 0 0 12px var(--accent);
+    animation: holoLoad 2.4s ease-out forwards;
+  }
+  @keyframes holoLoad { 0% { width: 0%; } 60% { width: 72%; } 100% { width: 100%; } }
+  .glitch { animation: glitch 2.6s steps(1) infinite; }
+  @keyframes glitch {
+    0%, 92%, 100% { text-shadow: 0 0 18px rgba(0, 229, 199, 0.6); transform: none; }
+    93% { text-shadow: -2px 0 var(--warn), 2px 0 var(--accent2); transform: translateX(1px); }
+    95% { text-shadow: 2px 0 var(--warn), -2px 0 var(--accent2); transform: translateX(-1px); }
+  }
+
+  /* ---------- App ---------- */
+  header { padding: 10px 0 22px; text-align: center; }
+  header h1 {
+    font-family: var(--mono); font-size: 1.9rem; font-weight: 700; letter-spacing: 0.06em;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 0 14px rgba(95, 185, 168, 0.25));
+  }
+  header .tagline {
+    color: var(--muted); margin-top: 6px; font-size: 0.95rem;
+  }
+  header .status-chip {
+    display: inline-flex; align-items: center; gap: 8px; margin-top: 12px;
+    font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.15em;
+    color: var(--accent); border: 1px solid var(--border); border-radius: 999px;
+    padding: 6px 14px; background: var(--accent-soft);
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px rgba(95, 185, 168, 0.6); animation: holoPulse 1.8s ease-in-out infinite; }
+
+  .layout { display: flex; gap: 16px; align-items: flex-start; }
+  .col-left { flex: 0 0 32%; min-width: 0; }
+  .col-mid { flex: 1 1 34%; min-width: 0; }
+  .col-right { flex: 1 1 34%; min-width: 0; }
+
+  section {
+    position: relative;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.02), 0 18px 50px rgba(0,0,0,0.45);
+    overflow: hidden;
+  }
+  section::before {
+    content: "";
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), var(--accent2), transparent);
+    opacity: 0.7;
+  }
+  section h2 {
+    font-family: var(--mono); font-size: 1rem; letter-spacing: 0.08em;
+    text-transform: uppercase; margin-bottom: 4px;
+    display: flex; align-items: center; gap: 10px; color: var(--accent);
+    text-shadow: none;
+  }
+  .num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: 8px; flex: none;
+    border: 1px solid var(--border); color: var(--accent);
+    background: var(--accent-soft); font-size: 0.85rem; font-weight: 700;
+  }
+  .sub { color: var(--muted); font-size: 0.88rem; margin-bottom: 14px; margin-left: 38px; }
+
+  textarea {
+    width: 100%; min-height: 150px; padding: 14px;
+    font-size: 1rem; font-family: var(--mono); color: var(--ink);
+    background: rgba(95, 185, 168, 0.04);
+    border: 1px solid var(--border); border-radius: 10px;
+    resize: vertical; caret-color: var(--accent);
+    box-shadow: inset 0 0 12px rgba(95, 185, 168, 0.04);
+  }
+  textarea::placeholder { color: rgba(125, 139, 154, 0.6); }
+  textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 14px rgba(95, 185, 168, 0.15), inset 0 0 12px rgba(95, 185, 168, 0.05); }
+  .hint { color: var(--muted); font-size: 0.85rem; margin: 10px 0 14px; }
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  button {
+    font: inherit; font-weight: 600; cursor: pointer;
+    border-radius: 10px; padding: 14px 22px; min-height: 48px;
+    border: 1px solid var(--border);
+  }
+  .btn-primary {
+    flex: 1; min-width: 150px;
+    font-family: var(--mono); letter-spacing: 0.08em; text-transform: uppercase;
+    color: #06201c;
+    background: linear-gradient(90deg, var(--accent), #8fd6c8);
+    box-shadow: 0 0 14px rgba(95, 185, 168, 0.25);
+    transition: box-shadow 0.2s ease, transform 0.1s ease;
+  }
+  .btn-primary:hover { box-shadow: 0 0 22px rgba(95, 185, 168, 0.4); transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-ghost {
+    background: transparent; color: var(--accent);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { background: var(--accent-soft); box-shadow: 0 0 10px rgba(95, 185, 168, 0.15); }
+
+  .badge {
+    display: inline-block; padding: 5px 14px; border-radius: 999px;
+    font-family: var(--mono); font-size: 0.78rem; letter-spacing: 0.08em;
+    margin-bottom: 12px; border: 1px solid;
+  }
+  .badge.risky { background: var(--warn-soft); color: var(--warn); border-color: rgba(217, 158, 112, 0.35); box-shadow: none; }
+  .badge.calm { background: var(--ok-soft); color: var(--ok); border-color: var(--border); }
+
+  .sign-list { list-style: none; }
+  .sign-list li {
+    border: 1px solid rgba(255, 158, 100, 0.35);
+    border-left: 3px solid var(--warn);
+    background: var(--warn-soft);
+    border-radius: 10px;
+    padding: 12px 14px; margin-bottom: 12px;
+    animation: riseIn 0.4s ease both;
+  }
+  .sign-phrase { font-weight: 700; font-size: 0.98rem; color: var(--warn); }
+  .sign-phrase .quoted { font-family: var(--mono); font-style: italic; color: var(--ink); font-weight: 500; }
+  .sign-why { color: var(--muted); font-size: 0.9rem; margin-top: 4px; }
+  .calm-note {
+    border: 1px solid var(--border); background: var(--ok-soft); border-radius: 10px; padding: 14px;
+    color: var(--ok); font-weight: 600;
+  }
+  .tips { list-style: none; counter-reset: tip; }
+  .tips li {
+    display: flex; gap: 12px; padding: 12px 0;
+    border-bottom: 1px dashed rgba(95, 185, 168, 0.12);
+    animation: riseIn 0.4s ease both;
+  }
+  .tips li:last-child { border-bottom: none; }
+  .tips .tip-num {
+    flex: none; width: 26px; height: 26px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--accent-soft); color: var(--accent);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 0.8rem; font-weight: 700; margin-top: 2px;
+  }
+  .tips strong { display: block; }
+  .tips .tip-body { color: var(--muted); font-size: 0.9rem; }
+  .ex-title { font-family: var(--mono); font-weight: 700; font-size: 0.8rem; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px; color: var(--accent2); }
+  .ex-btn {
+    display: block; width: 100%; text-align: left; font-weight: 400;
+    background: rgba(123, 163, 214, 0.05); color: var(--ink);
+    border: 1px solid rgba(123, 163, 214, 0.25); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 8px; min-height: 44px;
+    font-size: 0.88rem; line-height: 1.5;
+  }
+  .ex-btn strong { display: block; color: var(--accent2); font-family: var(--mono); font-size: 0.78rem; margin-bottom: 2px; }
+  .ex-btn:hover { border-color: var(--accent2); box-shadow: 0 0 10px rgba(123, 163, 214, 0.15); background: rgba(123, 163, 214, 0.08); }
+  .output-hidden { visibility: hidden; }
+  .output-placeholder {
+    border: 1px dashed var(--border); border-radius: 10px; padding: 16px;
+    background: rgba(0, 229, 199, 0.04);
+    color: var(--muted); font-size: 0.92rem;
+  }
+  .output-placeholder strong { color: var(--accent); font-family: var(--mono); }
+  footer { text-align: center; color: var(--muted); font-size: 0.8rem; margin-top: 10px; font-family: var(--mono); letter-spacing: 0.05em; }
+  @keyframes riseIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  @media (max-width: 900px) {
+    .layout { flex-direction: column; }
+    .col-left, .col-mid, .col-right { flex: 1 1 auto; width: 100%; }
+  }
+  @media (max-width: 480px) {
+    body { font-size: 16px; }
+    .wrap { padding: 16px 12px 48px; }
+    section { padding: 16px; }
+    header h1 { font-size: 1.4rem; }
+    .sub { margin-left: 0; }
+    button { width: 100%; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .holo-ring, .holo-core, .holo-scan, .holo-bar span, .glitch, .dot { animation: none !important; }
+    #holoIntro { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="holoIntro" aria-hidden="true">
+  <div class="holo-scene">
+    <div class="holo-ring">
+      <div class="ring r1"></div>
+      <div class="ring r2"></div>
+      <div class="ring r3"></div>
+      <div class="holo-core"></div>
+      <div class="holo-scan"></div>
+    </div>
+  </div>
+  <div class="holo-title glitch">Scam Shield Online</div>
+  <div class="holo-sub">INITIALISING THREAT SCANNER…</div>
+  <div class="holo-bar"><span></span></div>
+</div>
+
+<div class="wrap">
+  <header>
+    <h1>SCAM MESSAGE CHECKER</h1>
+    <p class="tagline">Paste a suspicious message and see the warning signs in plain words. Nothing you type is saved.</p>
+    <span class="status-chip"><span class="dot"></span>SCANNER READY · OFFLINE · NO DATA STORED</span>
+  </header>
+
+  <div class="layout">
+  <div class="col-left">
+  <section id="section-input" aria-labelledby="h-input">
+    <h2 id="h-input"><span class="num">01</span> Message Input</h2>
+    <p class="sub">Paste or type the message you want to inspect.</p>
+    <textarea id="msg" placeholder="> paste suspicious message here…" spellcheck="false"></textarea>
+    <p class="hint">Tip: copy the whole message, including any links, so nothing gets missed. Tap an example below to load it.</p>
+    <div id="examples">
+      <p class="ex-title">// Sample Transmissions</p>
+    </div>
+    <div class="btn-row">
+      <button class="btn-primary" id="checkBtn" type="button">▶ Check message</button>
+      <button class="btn-ghost" id="clearBtn" type="button">Clear</button>
+    </div>
+  </section>
+  </div>
+
+  <div class="col-mid">
+  <section id="section-signs" aria-labelledby="h-signs">
+    <h2 id="h-signs"><span class="num">02</span> Scam Signs</h2>
+    <p class="sub">Warning signs found in the message, with a simple explanation for each.</p>
+    <div id="signsOut"></div>
+  </section>
+  </div>
+
+  <div class="col-right">
+  <section id="section-tips" aria-labelledby="h-tips">
+    <h2 id="h-tips"><span class="num">03</span> Safety Tips</h2>
+    <p class="sub">Calm, practical steps you can take next.</p>
+    <ul class="tips" id="tipsOut"></ul>
+  </section>
+  </div>
+  </div>
+
+  <footer>// sample analysis only — always double-check with official sources like your bank or Bank Negara Malaysia</footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ----- Holographic intro: plays once, then reveals the app -----
+  var intro = document.getElementById("holoIntro");
+  function endIntro() {
+    intro.classList.add("done");
+    setTimeout(function () { if (intro.parentNode) intro.parentNode.removeChild(intro); }, 800);
+  }
+  var INTRO_MS = 2800;
+  setTimeout(endIntro, INTRO_MS);
+  // Let impatient users skip it with a click or key.
+  intro.addEventListener("click", endIntro);
+  document.addEventListener("keydown", function skip(e) {
+    if (!intro.classList.contains("done")) { endIntro(); }
+    document.removeEventListener("keydown", skip);
+  });
+
+  // Each rule: test regex, short label for the risky phrase, plain-words explanation.
+  var RULES = [
+    { re: /(congratulations?|anda telah terpilih|you(?:'| a)re (?:the )?winner|hadiah|prize|lucky draw)/i,
+      label: "You have won something",
+      why: "Real prizes usually require you to enter first. Scammers often announce a 'win' out of nowhere to get you excited so you act without thinking." },
+    { re: /(klik|click|tap).{0,40}(link|pautan|url)|https?:\/\/|bit\.ly|tinyurl|\.xyz|\.top|wa\.me|t\.me/i,
+      label: "A link to click",
+      why: "Links can lead to fake websites that steal your passwords or banking details. The web address can look real but actually be a copy." },
+    { re: /(\d{1,3}\s?(jam|hour|hours|minute|minutes|mins)|segera|urgent|hurry|immediately|within \d+|before .{0,20}(deadline|expire|closed|tutup))/i,
+      label: "Pressure to act fast",
+      why: "Creating a false deadline ('within 2 hours', 'urgent') is a classic trick. It stops you from pausing, checking, or asking someone you trust." },
+    { re: /(otp|password|kata laluan|pin|ic number|no\. ?ic|nombor ic|bank details|no\. ?akaun|account number|nombor kad|card number|cvv)/i,
+      label: "Asks for private details",
+      why: "No legitimate organisation will ask for your OTP, password, PIN, or full card details by message. These are used to take money from your account." },
+    { re: /(transfer|bayar|deposit|pay|payment|processing fee|fee|yuran|cukai|tax|deposit asahan).{0,50}(rm|ringgit|rp|usd|\d)/i,
+      label: "Asks you to pay money first",
+      why: "Paying a 'fee', 'tax', or 'deposit' to receive a prize, parcel, or loan is a common scam. Once the money is sent, it is very hard to get back." },
+    { re: /(polis|police|lhdn|bank negara|maybank|cimb| Touch ?'? ?n ?Go|TNG|shopee|lazada|jpm| kurier|pos laju|dhl|customs|kastam|brim|tax refund)/i,
+      label: "Pretends to be a trusted name",
+      why: "Scammers often claim to be from a bank, courier, LHDN, or the police so you trust them. Real agencies do not ask for money or personal details through messages like this." },
+    { re: /(jangan (beritahu|bagitahu)|do ?n'?t tell|keep (this )?secret|rahsia|confidential|jangan (sedih|panik)|don'?t panic)/i,
+      label: "Tells you to keep it secret",
+      why: "Asking you to stay silent or 'not panic' stops you from checking with family or friends — the people who would spot the scam." },
+    { re: /(unknown number|\+60 ?1\d[- ]?\d{3}[- ]?\d{4,5}|\+601\d{7,8})/i,
+      label: "From an unusual number",
+      why: "Official companies and agencies normally use official channels or short codes, not random personal mobile numbers." },
+    { re: /(investment|pelaburan|profit|untung|returns|crypto|bitcoin|forex|fx|ganda.{0,5}wang|double your)/i,
+      label: "Promises big easy returns",
+      why: "Offers of guaranteed or very high profit are a hallmark of investment scams. Real investments always carry risk and are never 'guaranteed'." },
+    { re: /(job|kerja part[- ]?time|part[- ]?time|gaji|salary|earn .{0,20}(per day|daily|hari)|like and subscribe|taipan|review task)/i,
+      label: "Too-good-to-be-true job offer",
+      why: "'Earn money easily by reviewing products or liking posts' is a common scam that starts small and later asks you to deposit your own money." },
+    { re: /(loan|pinjaman|lend|pinjam).{0,60}(approved|lulus|fast|cepat|no.??( collateral|doc))/i,
+      label: "Easy loan offer",
+      why: "Licensed lenders in Malaysia must follow strict rules and won't cold-message you promising instant approval with no documents." },
+    { re: /(grandchild|anak|family (member|emergency)|klang|accident|kidnap|ditahan|arrested|ditangkap)/i,
+      label: "Emotional family emergency story",
+      why: "Scammers invent emergencies involving family to make you act fast out of worry, before you have time to verify anything." },
+    { re: /(whatsapp|telegram|whatsapps? group|add me|join the group|saya dari grup)/i,
+      label: "Invites you to a chat group",
+      why: "Fake investment or job 'groups' are used to show fake success stories and pressure you into joining before you hand over money." },
+    { re: /(parcel|pakej|paket|package|delivery is stuck|clearance|customs fee|bea cukai)/i,
+      label: "Stuck parcel / delivery notice",
+      why: "Messages about parcels you don't remember ordering, asking for a small 'clearance fee', are a very common delivery scam." }
+  ];
+
+  var TIPS_ALWAYS = [
+    { t: "Don't click any links", b: "Type the official website yourself in your browser instead of tapping links in the message." },
+    { t: "Verify the sender another way", b: "Call the company using the number on its official website or your bank card — never the number in the message." },
+    { t: "Never share OTPs, PINs, or passwords", b: "No bank or agency will ever ask for these by message, call, or email." },
+    { t: "Take a pause", b: "Real organisations give you time. Urgency is a warning sign — step away and think before replying." },
+    { t: "Tell someone you trust", b: "Talking it over with family or a friend often makes scam tricks obvious straight away." }
+  ];
+  var TIPS_IF_RISKY = [
+    { t: "Don't send any money", b: "No prize, parcel, or job is worth a 'fee' paid in advance. Once sent, money is usually gone." },
+    { t: "Block and report the number", b: "Use your phone's block feature, and report the message to the relevant platform or to the CCID (Scam Response Centre) at 997." },
+    { t: "Check with the real organisation", b: "If it claims to be a bank, LHDN, or courier, contact them directly through their official website first." }
+  ];
+
+  var msgEl = document.getElementById("msg");
+  var signsOut = document.getElementById("signsOut");
+  var tipsOut = document.getElementById("tipsOut");
+  var checkBtn = document.getElementById("checkBtn");
+  var clearBtn = document.getElementById("clearBtn");
+
+  var EXAMPLES = [
+    { text: "SYABAS! Anda telah terpilih untuk mendapat hadiah RM8,000 daripada Lucky Draw MyKad 2026. Klik pautan ini dalam 3 JAM untuk tuntut: bit.ly/mykad-prize. Bayar yuran pemprosesan RM50 dahulu.",
+      intro: "Example: a 'you won a prize' message (Malay)" },
+    { text: "Parcel MyParcel anda tertahan di kastam. Bayar clearance fee RM12.80 melalui link ini https://pos-laju-clear.top/pay dalam 24 jam atau pakej akan dihantar balik.",
+      intro: "Example: a stuck-parcel delivery scam" },
+    { text: "Hi! Part-time job: earn RM300/day just by reviewing products on WhatsApp. Join our telegram group now, deposit RM100 to start, guaranteed profit. Don't tell anyone about this opportunity!",
+      intro: "Example: a part-time job / investment scam" }
+  ];
+
+  function esc(s) {
+    return s.replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function findSigns(text) {
+    var found = [];
+    RULES.forEach(function (r) {
+      var m = text.match(r.re);
+      if (m) found.push({ label: r.label, why: r.why, snippet: m[0].trim() });
+    });
+    return found;
+  }
+
+  function renderSigns(text) {
+    var found = findSigns(text);
+    var html = "";
+    if (!text.trim()) {
+      html = '<p class="calm-note">The message box is empty. Paste a message above, or look at the examples — the checker never shows a blank screen.</p>';
+    } else if (found.length === 0) {
+      html = '<p class="calm-note">No obvious scam signs found in this message. That\'s a good sign, but stay careful — scammers change their wording often. When in doubt, verify the sender directly.</p>';
+    } else {
+      html = '<span class="badge risky">⚠ ' + found.length + " possible warning" + (found.length > 1 ? " signs" : " sign") + " detected</span>";
+      html += '<ul class="sign-list">';
+      found.forEach(function (s, i) {
+        html += '<li style="animation-delay:' + (i * 60) + 'ms"><p class="sign-phrase">⚠ ' + esc(s.label) +
+                ' — <span class="quoted">“' + esc(s.snippet) + '”</span></p>' +
+                '<p class="sign-why">' + esc(s.why) + "</p></li>";
+      });
+      html += "</ul>";
+    }
+    signsOut.innerHTML = html;
+    return found.length > 0;
+  }
+
+  function renderTips(hasSigns, hasText) {
+    var tips = TIPS_ALWAYS.slice();
+    if (hasSigns) tips = TIPS_IF_RISKY.concat(tips);
+    var html = "";
+    tips.forEach(function (t, i) {
+      html += '<li style="animation-delay:' + (i * 50) + 'ms"><span class="tip-num">' + (i + 1) + "</span><div><strong>" + esc(t.t) +
+              '</strong><span class="tip-body">' + esc(t.b) + "</span></div></li>";
+    });
+    tipsOut.innerHTML = html;
+  }
+
+  function runCheck() {
+    var text = msgEl.value;
+    var hasSigns = renderSigns(text);
+    renderTips(hasSigns, !!text.trim());
+    // Results stay hidden until the user checks a message.
+    document.getElementById("section-signs").classList.remove("output-hidden");
+    document.getElementById("section-tips").classList.remove("output-hidden");
+  }
+
+  function showPlaceholders() {
+    signsOut.innerHTML = '<div class="output-placeholder"><strong>// STANDBY</strong><br>Paste or type a suspicious message, then tap “Check message”. Your scan results will appear here.</div>';
+    tipsOut.innerHTML = '<li><div><span class="tip-body">Safety tips will appear here after you check a message.</span></div></li>';
+  }
+
+  function renderExamples() {
+    var box = document.getElementById("examples");
+    EXAMPLES.forEach(function (ex) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "ex-btn";
+      b.innerHTML = "<strong>" + esc(ex.intro) + "</strong>" + esc(ex.text.slice(0, 90)) + "…";
+      b.addEventListener("click", function () {
+        msgEl.value = ex.text;
+        runCheck();
+      });
+      box.appendChild(b);
+    });
+  }
+
+  checkBtn.addEventListener("click", runCheck);
+
+  clearBtn.addEventListener("click", function () {
+    msgEl.value = "";
+    // Never leave the page looking empty: fall back to the first example.
+    msgEl.value = EXAMPLES[0].text;
+    showPlaceholders();
+    document.getElementById("section-signs").classList.add("output-hidden");
+    document.getElementById("section-tips").classList.add("output-hidden");
+  });
+
+  // Startup: input column shows an example; output columns stay hidden until Check.
+  renderExamples();
+  msgEl.value = EXAMPLES[0].text;
+  document.getElementById("section-signs").classList.add("output-hidden");
+  document.getElementById("section-tips").classList.add("output-hidden");
+  showPlaceholders();
+})();
+</script>
+</body>
+</html>
